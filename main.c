@@ -12,10 +12,8 @@ int main(void){
         socklen_t slen = sizeof(sock);
         char host[1024] = "";
         char port[1044] = "";
-        char cmd[1000] = "";
         int status;
 
-	unveil("/usr/bin/doas", "rx");
 	unveil("/sbin/pfctl", "rx");
 	pledge("exec inet dns stdio", NULL);
 
@@ -31,13 +29,10 @@ int main(void){
 	}
 
 	syslog(LOG_DAEMON, "blocking %s", host);
-	snprintf(cmd, sizeof(cmd), "/sbin/pfctl -t blocked -T add %s", host);
-
-	syslog(LOG_DAEMON, "%s", cmd);
         switch(sock. sa_family)
         {
             case AF_INET:
-                    execlp(cmd, cmd, NULL);
+                    execlp("/sbin/pfctl", "pfctl", "-t", "blocked", "-T", "add", host, NULL);
                     break;
             // case AF_INET6:
             //         printf("%s %s\n", host, cmd);
