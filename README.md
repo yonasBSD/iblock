@@ -22,10 +22,12 @@ blocking_tcp="{ 21 23 53 111 135 137:139 445 1433 25565 5432 3389 3306 27019 }"
 table <blocked> persist
 
 pass in quick on egress proto tcp to port $blocking_tcp rdr-to 127.0.0.1 port 666
-block in quick from <blocked>
+block in quick from <blocked> label iblock
 ```
 
 Done! You can see IP banned using `pfctl -t blocked -T show` and iBlock will log blocking too.
+
+In the example I added a label to the block rule, you can use `pfctl -s labels` to view statistics from this rule, [see documentation for column meaning](https://man.openbsd.org/pfctl#s~8).
 
 
 # TODO
