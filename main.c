@@ -22,7 +22,7 @@ int main(void){
 
         status = getnameinfo(&sock, slen, host, sizeof host, port, sizeof port,
                         NI_NUMERICHOST|NI_NUMERICSERV);
-	if(status > 0)
+	if(status != 0)
 	{
             syslog(LOG_DAEMON, "getnameinfo error");
             exit(1);
