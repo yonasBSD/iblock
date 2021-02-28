@@ -17,7 +17,7 @@ Use this in `/etc/pf.conf`, choose which ports will trigger the ban from the var
 
 ```
 # services triggering a block
-blocking_tcp="{ 3306 5432 3389 27019 }"
+blocking_tcp="{ 21 23 53 111 135 137:139 445 1433 25565 5432 3389 3306 27019 }"
 
 table <blocked> persist
 
