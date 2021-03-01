@@ -10,8 +10,8 @@
 int main(void){
         struct sockaddr sock;
         socklen_t slen = sizeof(sock);
-        char host[1024] = "";
-        char port[1044] = "";
+        char host[128] = "";
+        char port[6] = "";
         int status;
 
 	unveil("/sbin/pfctl", "rx");
