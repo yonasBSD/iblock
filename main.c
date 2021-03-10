@@ -1,45 +1,57 @@
-#include <stdlib.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <stdio.h>
 #include <err.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <netdb.h>
-#include <unistd.h>
+#include <netinet/in.h>
 #include <syslog.h>
+#include <unistd.h>
 
-int main(void){
-        struct sockaddr sock;
-        socklen_t slen = sizeof(sock);
-        char host[128] = "";
-        char port[6] = "";
-        int status;
+#include <sys/socket.h>
 
-	unveil("/sbin/pfctl", "rx");
-	pledge("exec inet dns stdio", NULL);
+#define DEFAULT_TABLE "blocked"
+#define TABLE_LEN 128 /* not sure what is pf table name length limit... */
 
-        if(getpeername(0, &sock, &slen))
-            err(1, "getpeername");
+int main(int argc, char *argv[]){
+	struct sockaddr_storage sock;
+	socklen_t slen = sizeof(sock);
+	char ip[INET6_ADDRSTRLEN] = {'\0'}; /* INET6_ADDRSTRLEN > INET_ADDRSTRLEN */
+	char table[TABLE_LEN] = DEFAULT_TABLE;
+	int status;
 
-        status = getnameinfo(&sock, slen, host, sizeof host, port, sizeof port,
-                        NI_NUMERICHOST|NI_NUMERICSERV);
-	if(status != 0)
-	{
-            syslog(LOG_DAEMON, "getnameinfo error");
-            exit(1);
+	if (unveil("/sbin/pfctl", "rx") != 0)
+		err(1, "unveil");
+	if (pledge("exec inet stdio", NULL) != 0)
+		err(1, "pledge");
+
+	/* configuration */
+	if (argc == 2) {
+		if (strlen(argv[1]) > sizeof(table))
+			errx(1, "table name is too long");
+		strlcpy(table, argv[1], TABLE_LEN);
 	}
 
-	syslog(LOG_DAEMON, "blocking %s", host);
-        switch(sock. sa_family)
-        {
-            case AF_INET:
-                    execlp("/sbin/pfctl", "pfctl", "-t", "blocked", "-T", "add", host, NULL);
-                    break;
-            // case AF_INET6:
-            //         printf("%s %s\n", host, cmd);
-            //         break;
-            default:
-                    exit(2);
-                    //puts("run from console");
-        }
+	/* get socket structure */
+	if(getpeername(STDIN_FILENO, (struct sockaddr *)&sock, &slen))
+		err(1, "getpeername");
+
+	/* get ip */
+	status = getnameinfo((struct sockaddr *)&sock, slen, ip, sizeof(ip),
+						  NULL, 0, NI_NUMERICHOST);
+
+	if(status != 0) {
+		syslog(LOG_DAEMON, "getnameinfo error");
+		exit(1);
+	}
+
+	syslog(LOG_DAEMON, "blocking %s", ip);
+	switch(sock.ss_family) {
+	case AF_INET: /* FALLTHROUGHT */
+	case AF_INET6:
+		execlp("/sbin/pfctl", "pfctl", "-t", table, "-T", "add", ip, NULL);
+		break;
+	default:
+		exit(2);
+	}
 }
 

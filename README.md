@@ -11,6 +11,7 @@ Start inetd service with this in `/etc/inetd.conf`:
 
 ```
 666 stream tcp nowait root /usr/local/bin/iblock iblock
+666 stream tcp6 nowait root /usr/local/bin/iblock iblock
 ```
 
 Use this in `/etc/pf.conf`, choose which ports will trigger the ban from the variable:
@@ -22,7 +23,8 @@ blocking_tcp="{ 21 23 53 111 135 137:139 445 1433 25565 5432 3389 3306 27019 }"
 table <blocked> persist
 
 block in quick from <blocked> label iblock
-pass in quick on egress proto tcp to port $blocking_tcp rdr-to 127.0.0.1 port 666
+pass in quick on egress inet proto tcp to port $blocking_tcp rdr-to 127.0.0.1 port 666
+pass in quick on egress inet6 proto tcp to port $blocking_tcp rdr-to ::1 port 666
 ```
 
 Done! You can see IP banned using `pfctl -t blocked -T show` and iBlock will log blocking too.
