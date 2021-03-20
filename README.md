@@ -7,13 +7,27 @@ It is meant to be used to block scanner connecting on unused ports.
 
 # How to use
 
+## Add a dedicated user
+
+```
+useradd -s /sbin/nologin _iblock
+```
+
+## Configure doas
+
+Add in `/etc/doas.conf`:
+
+```
+permit nopass _iblock cmd /sbin/pfctl
+```
+
 ## Configure inetd
 
 Start inetd service with this in `/etc/inetd.conf`:
 
 ```
-666 stream tcp nowait root /usr/local/bin/iblock iblock
-666 stream tcp6 nowait root /usr/local/bin/iblock iblock
+666 stream tcp nowait _iblock /usr/local/bin/iblock iblock
+666 stream tcp6 nowait _iblock /usr/local/bin/iblock iblock
 ```
 
 You can change the PF table by adding it as a parameter like this:
@@ -51,4 +65,3 @@ In the example I added a label to the block rule, you can use `pfctl -s labels` 
 
 - make install doing something
 - A proper man page
-- make it work with doas

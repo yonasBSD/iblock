@@ -19,7 +19,7 @@ int main(int argc, char *argv[]){
 	char table[TABLE_LEN] = DEFAULT_TABLE;
 	int status;
 
-	if (unveil("/sbin/pfctl", "rx") != 0)
+	if (unveil("/usr/bin/doas", "rx") != 0)
 		err(1, "unveil");
 	if (pledge("exec inet stdio", NULL) != 0)
 		err(1, "pledge");
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
 	switch(sock.ss_family) {
 	case AF_INET: /* FALLTHROUGHT */
 	case AF_INET6:
-		execlp("/sbin/pfctl", "pfctl", "-t", table, "-T", "add", ip, NULL);
+		execlp("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
 		break;
 	default:
 		exit(2);
