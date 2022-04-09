@@ -32,9 +32,11 @@ Start inetd service with this in `/etc/inetd.conf`:
 
 You can change the PF table by adding it as a parameter like this:
 
+In this example, the parameter `blocklist` will add IPs to the `blocklist` PF table.
+
 ```
-666 stream tcp nowait root /usr/local/bin/iblock iblock blocklist
-666 stream tcp6 nowait root /usr/local/bin/iblock iblock blocklist
+666 stream tcp nowait _iblock /usr/local/bin/iblock iblock blocklist
+666 stream tcp6 nowait _iblock /usr/local/bin/iblock iblock blocklist
 ```
 
 ## Configure packet filter
