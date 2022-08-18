@@ -10,6 +10,9 @@ iblock: main.c
 clean:
 	rm -f iblock
 
+install: iblock
+	install -o root -g wheel iblock ${PREFIX}/sbin/
+
 test: clean iblock
 	@printf "hello\n" | nc -4 localhost 666
 	@printf "hello\n" | nc -6 localhost 666
