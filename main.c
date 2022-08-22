@@ -25,10 +25,9 @@ int main(int argc, char *argv[]){
 		err(1, "pledge");
 
 	/* configuration */
-	if (argc == 2) {
+	if (argc == 2)
 		if (strlcpy(table, argv[1], TABLE_LEN) >= sizeof(table))
 			errx(1, "table name is too long");
-	}
 
 	/* get socket structure */
 	if(getpeername(STDIN_FILENO, (struct sockaddr *)&sock, &slen))
