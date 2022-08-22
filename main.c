@@ -30,20 +30,20 @@ int main(int argc, char *argv[]){
 			errx(1, "table name is too long");
 
 	/* get socket structure */
-	if(getpeername(STDIN_FILENO, (struct sockaddr *)&sock, &slen))
+	if (getpeername(STDIN_FILENO, (struct sockaddr *)&sock, &slen))
 		err(1, "getpeername");
 
 	/* get ip */
 	status = getnameinfo((struct sockaddr *)&sock, slen, ip, sizeof(ip),
 						  NULL, 0, NI_NUMERICHOST);
 
-	if(status != 0) {
+	if (status != 0) {
 		syslog(LOG_DAEMON, "getnameinfo error");
 		exit(1);
 	}
 
 	syslog(LOG_DAEMON, "blocking %s", ip);
-	switch(sock.ss_family) {
+	switch (sock.ss_family) {
 	case AF_INET: /* FALLTHROUGHT */
 	case AF_INET6:
 		execlp("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
