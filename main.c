@@ -9,7 +9,7 @@
 
 #include <sys/socket.h>
 
-#define DEFAULT_TABLE "blocked"
+#define DEFAULT_TABLE "iblocked"
 #define TABLE_LEN 32 /* see PF_TABLE_NAME_SIZE in net/pfvar.h */
 
 int main(int argc, char *argv[]){
