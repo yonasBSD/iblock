@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 
 #define DEFAULT_TABLE "blocked"
-#define TABLE_LEN 128 /* not sure what is pf table name length limit... */
+#define TABLE_LEN 32 /* see PF_TABLE_NAME_SIZE in net/pfvar.h */
 
 int main(int argc, char *argv[]){
 	struct sockaddr_storage sock;
