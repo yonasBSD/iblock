@@ -13,11 +13,11 @@
 #define TABLE_LEN 32 /* see PF_TABLE_NAME_SIZE in net/pfvar.h */
 
 int main(int argc, char *argv[]){
-	struct sockaddr_storage sock;
+	struct sockaddr_storage sock = {0};
 	socklen_t slen = sizeof(sock);
 	char ip[INET6_ADDRSTRLEN] = {'\0'}; /* INET6_ADDRSTRLEN > INET_ADDRSTRLEN */
 	char table[TABLE_LEN] = DEFAULT_TABLE;
-	int status;
+	int status = 0;
 
 	if (unveil("/usr/bin/doas", "rx") != 0)
 		err(1, "unveil");
@@ -26,9 +26,8 @@ int main(int argc, char *argv[]){
 
 	/* configuration */
 	if (argc == 2) {
-		if (strlen(argv[1]) > sizeof(table))
+		if (strlcpy(table, argv[1], TABLE_LEN) >= sizeof(table))
 			errx(1, "table name is too long");
-		strlcpy(table, argv[1], TABLE_LEN);
 	}
 
 	/* get socket structure */
