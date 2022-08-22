@@ -44,7 +44,7 @@ int main(int argc, char *argv[]){
 
 	syslog(LOG_DAEMON, "blocking %s", ip);
 	switch (sock.ss_family) {
-	case AF_INET: /* FALLTHROUGHT */
+	case AF_INET: /* FALLTHROUGH */
 	case AF_INET6:
 		execlp("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
 		break;
