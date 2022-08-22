@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
 	switch (sock.ss_family) {
 	case AF_INET: /* FALLTHROUGH */
 	case AF_INET6:
-		execlp("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
+		execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
 		break;
 	default:
 		exit(2);
