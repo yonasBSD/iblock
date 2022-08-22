@@ -2,6 +2,10 @@ CFLAGS  += -pedantic -Wall -Wextra -Wmissing-prototypes \
            -Werror -Wshadow -Wstrict-overflow -fno-strict-aliasing \
            -Wstrict-prototypes -Wwrite-strings \
 		   -Os
+
+PREFIX = /usr/local
+
+
 all: iblock
 	
 iblock: main.c
