@@ -39,6 +39,8 @@ In this example, the parameter `blocklist` will add IPs to the `blocklist` PF ta
 666 stream tcp6 nowait _iblock /usr/local/bin/iblock iblock blocklist
 ```
 
+Default is "iblocked" table.
+
 ## Configure packet filter
 
 Use this in `/etc/pf.conf`, choose which ports will trigger the ban from the variable:
@@ -65,5 +67,4 @@ In the example I added a label to the block rule, you can use `pfctl -s labels` 
 
 # TODO
 
-- make install doing something
 - A proper man page
