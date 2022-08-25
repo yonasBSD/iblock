@@ -9,7 +9,7 @@ PREFIX = /usr/local
 all: iblock
 	
 iblock: main.c
-	${CC} -o iblock main.c
+	${CC} ${CFLAGS} -o iblock main.c
 
 clean:
 	rm -f iblock
