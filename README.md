@@ -4,6 +4,7 @@ iblock is an inetd program adding the client IP to a Packet Filter table.
 
 It is meant to be used to block scanner connecting on unused ports.
 
+Upon connection, the IP is added to a PF table and all established connections with this IP are killed.  You need to use a PF bloking rule using the table.
 
 # How to use
 

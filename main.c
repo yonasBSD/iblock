@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <syslog.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <sys/socket.h>
@@ -18,10 +19,11 @@ int main(int argc, char *argv[]){
 	char ip[INET6_ADDRSTRLEN] = {'\0'}; /* INET6_ADDRSTRLEN > INET_ADDRSTRLEN */
 	char table[TABLE_LEN] = DEFAULT_TABLE;
 	int status = 0;
+	pid_t id;
 
 	if (unveil("/usr/bin/doas", "rx") != 0)
 		err(1, "unveil");
-	if (pledge("exec inet stdio", NULL) != 0)
+	if (pledge("exec inet proc stdio", NULL) != 0)
 		err(1, "pledge");
 
 	/* configuration */
@@ -46,7 +48,15 @@ int main(int argc, char *argv[]){
 	switch (sock.ss_family) {
 	case AF_INET: /* FALLTHROUGH */
 	case AF_INET6:
-		execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
+		id = fork();
+
+		// child process
+		if (id == 0) {
+			execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
+		} else { // parent process
+			wait(NULL);
+		}
+		execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-k", ip, NULL);
 		break;
 	default:
 		exit(2);
