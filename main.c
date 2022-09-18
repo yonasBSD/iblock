@@ -44,22 +44,29 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
-	syslog(LOG_DAEMON, "blocking %s", ip);
 	switch (sock.ss_family) {
 	case AF_INET: /* FALLTHROUGH */
 	case AF_INET6:
 		id = fork();
 
-		// child process
-		if (id == 0) {
-			execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-t", table, "-T", "add", ip, NULL);
-		} else { // parent process
+		if (id == -1) {
+			syslog(LOG_DAEMON, "fork error");
+			exit(1);
+		} else if (id == 0) {
+			// child process
+			syslog(LOG_DAEMON, "blocking %s", ip);
+			execl("/usr/bin/doas", "doas", "/sbin/pfctl",
+				"-t", table, "-T", "add", ip, NULL);
+
+		} else {
+			// parent process
 			wait(NULL);
+			syslog(LOG_DAEMON, "kill states for %s", ip);
+			execl("/usr/bin/doas", "doas", "/sbin/pfctl",
+				"-k", ip, NULL);
 		}
-		execl("/usr/bin/doas", "doas", "/sbin/pfctl", "-k", ip, NULL);
 		break;
 	default:
 		exit(2);
 	}
 }
-
