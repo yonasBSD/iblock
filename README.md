@@ -27,8 +27,8 @@ permit nopass _iblock cmd /sbin/pfctl
 Start inetd service with this in `/etc/inetd.conf`:
 
 ```
-666 stream tcp nowait _iblock /usr/local/bin/iblock iblock
-666 stream tcp6 nowait _iblock /usr/local/bin/iblock iblock
+666 stream tcp nowait _iblock /usr/local/sbin/iblock iblock
+666 stream tcp6 nowait _iblock /usr/local/sbin/iblock iblock
 ```
 
 You can change the PF table by adding it as a parameter like this:
@@ -36,8 +36,8 @@ You can change the PF table by adding it as a parameter like this:
 In this example, the parameter `blocklist` will add IPs to the `blocklist` PF table.
 
 ```
-666 stream tcp nowait _iblock /usr/local/bin/iblock iblock blocklist
-666 stream tcp6 nowait _iblock /usr/local/bin/iblock iblock blocklist
+666 stream tcp nowait _iblock /usr/local/sbin/iblock iblock blocklist
+666 stream tcp6 nowait _iblock /usr/local/sbin/iblock iblock blocklist
 ```
 
 Default is "iblocked" table.
