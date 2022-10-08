@@ -2,14 +2,18 @@
 #include <sys/wait.h>
 
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <err.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 
+#define PORT "2507"
+#define BACKLOG 42
 #define DEFAULT_TABLE "iblocked"
 
 static void __dead
@@ -19,72 +23,135 @@ usage(void)
 	exit(1);
 }
 
+static void *get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET)
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+static void runcmd(const char* cmd, const char** arg_list)
+{
+
+	pid_t pid = fork();
+	if (pid == -1) {
+		syslog(LOG_DAEMON, "fork error");
+		err(1,"fork");
+	} else if (pid == 0) {	/* child */
+		execv(cmd, (char **)arg_list);
+		/* if this is reached, then exec failed */
+		syslog(LOG_DAEMON, "execv error");
+		err(1,"execv");
+	} else {	/* parent */
+		wait(NULL);
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
-	struct sockaddr_storage sock = {0};
-	socklen_t slen = sizeof(sock);
-	char ip[INET6_ADDRSTRLEN] = {'\0'}; /* INET6_ADDRSTRLEN > INET_ADDRSTRLEN */
-	const char *table = DEFAULT_TABLE;
-	int ch, status = 0;
-	pid_t id;
+	char ip[INET6_ADDRSTRLEN]	= {'\0'};
+	const char *table	        = DEFAULT_TABLE;
+	int sockfd 	                = 0;
+	int new_fd 	                = 0;
+	int retval 	                = 0;
+	socklen_t sin_size 	        = 0;
+	struct addrinfo hints, *servinfo, *p;
+	struct sockaddr_storage client_addr;
+	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
+				            "/sbin/pfctl", "-t", table,
+				            "-T", "add", ip,
+				            NULL };
+	const char *killstatecmd[]	= { "/usr/bin/doas", "-n",
+					    "/sbin/pfctl",
+					    "-k", ip,
+					    NULL };
+
 
 	if (unveil("/usr/bin/doas", "rx") != 0)
 		err(1, "unveil");
-	if (pledge("exec inet proc stdio", NULL) != 0)
+	if (pledge("stdio inet exec proc rpath", NULL) != 0)
 		err(1, "pledge");
 
-	while ((ch = getopt(argc, argv, "")) != -1) {
-		switch (ch) {
-		default:
-			usage();
-		}
-	}
-	argc -= optind;
-	argv += optind;
-
-	if (argc > 1)
+	if (argc > 2)
 		usage();
+	else if (argc == 2)
+		table = argv[1];
 
-	if (argc == 1)
-		table = *argv;
+	/* initialize structures */
+	memset(&client_addr, 0, sizeof(client_addr));
+	memset(&hints, 0, sizeof(hints));
 
-	/* get socket structure */
-	if (getpeername(STDIN_FILENO, (struct sockaddr *)&sock, &slen))
-		err(1, "getpeername");
+	/* set hints for socket */
+	hints.ai_family = AF_UNSPEC; /* ip4 or ip6 */
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 
-	/* get ip */
-	status = getnameinfo((struct sockaddr *)&sock, slen, ip, sizeof(ip),
-	    NULL, 0, NI_NUMERICHOST);
-
-	if (status != 0) {
-		syslog(LOG_DAEMON, "getnameinfo error: %s",
-		    gai_strerror(status));
-		exit(1);
+	if ((retval = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+		syslog(LOG_DAEMON, "getaddrinfo failed");
+		err(1, "getaddrinfo :%s", gai_strerror(retval));
 	}
 
-	switch (sock.ss_family) {
-	case AF_INET: /* FALLTHROUGH */
-	case AF_INET6:
-		id = fork();
+	/* get a socket and bind */
+	for (p = servinfo; p != NULL; p = p->ai_next) {
+		if ((sockfd = socket(p->ai_family,
+					p->ai_socktype,
+					p->ai_protocol)) == -1) {
+			continue;
+		}
 
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+			close(sockfd);
+			continue;
+		}
+
+		break;
+	}
+
+	freeaddrinfo(servinfo);
+
+	if (p == NULL) {
+		syslog(LOG_DAEMON, "Failed to bind");
+		err(1, "Failed to bind");
+	}
+
+	if (listen(sockfd, BACKLOG) == -1) {
+		syslog(LOG_DAEMON, "listen failed");
+		err(1, "listen");
+	}
+
+	while (1) {
+		sin_size = sizeof(client_addr);
+		new_fd = accept(sockfd,
+				(struct sockaddr*)&client_addr,
+				&sin_size);
+
+		if (new_fd == -1)
+			continue;
+
+		/* get client ip */
+		inet_ntop(client_addr.ss_family,
+			get_in_addr((struct sockaddr *)&client_addr),
+			ip, sizeof(ip));
+
+		close(new_fd); /* no longer needed */
+
+		pid_t id = fork();
 		if (id == -1) {
 			syslog(LOG_DAEMON, "fork error");
-			exit(1);
-		} else if (id == 0) {
-			// child process
+			err(1, "fork");
+		} else if (id == 0) { /* child process */
 			syslog(LOG_DAEMON, "blocking %s", ip);
-			execl("/usr/bin/doas", "doas", "/sbin/pfctl",
-			    "-t", table, "-T", "add", ip, NULL);
-		} else {
-			// parent process
-			wait(NULL);
+			runcmd(bancmd[0], bancmd);
 			syslog(LOG_DAEMON, "kill states for %s", ip);
-			execl("/usr/bin/doas", "doas", "/sbin/pfctl",
-			    "-k", ip, NULL);
+			runcmd(killstatecmd[0], killstatecmd);
+			exit(0);
+		} else {
+			/* parent process */
+			waitpid(id, NULL, WNOHANG); /* non-blocking loop */
 		}
-		break;
-	default:
-		exit(2);
 	}
+	close(sockfd);
+	return 0;
 }
