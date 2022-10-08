@@ -162,6 +162,8 @@ main(int argc, char *argv[])
 			runcmd(bancmd[0], bancmd);
 			syslog(LOG_DAEMON, "kill states for %s", ip);
 			runcmd(killstatecmd[0], killstatecmd);
+			close(sockfd);
+			exit(0);
 		}
 	}
 	close(sockfd);
