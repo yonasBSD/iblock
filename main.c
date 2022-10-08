@@ -121,6 +121,8 @@ main(int argc, char *argv[])
 		err(1, "listen");
 	}
 
+	syslog(LOG_DAEMON, "ready to reap on port %s, muhahaha :>", PORT);
+
 	while (1) {
 		sin_size = sizeof(client_addr);
 		new_fd = accept(sockfd,
