@@ -56,5 +56,3 @@ In the example I added a label to the block rule, you can use `pfctl -s labels` 
 # TODO
 
 - A proper man page
-- a rc daemon
-
