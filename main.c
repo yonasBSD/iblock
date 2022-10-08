@@ -6,6 +6,7 @@
 
 #include <err.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,12 +17,11 @@
 #define BACKLOG 42
 #define DEFAULT_TABLE "iblocked"
 
-static void __dead
-usage(void)
-{
-	fprintf(stderr, "usage: %s [table]\n", getprogname());
-	exit(1);
-}
+static void *get_in_addr(struct sockaddr *);
+static void runcmd(const char*, const char**);
+static void sigchld(int unused);
+static void usage(void);
+
 
 static void *get_in_addr(struct sockaddr *sa)
 {
@@ -33,7 +33,6 @@ static void *get_in_addr(struct sockaddr *sa)
 
 static void runcmd(const char* cmd, const char** arg_list)
 {
-
 	pid_t pid = fork();
 	if (pid == -1) {
 		syslog(LOG_DAEMON, "fork error");
@@ -43,9 +42,22 @@ static void runcmd(const char* cmd, const char** arg_list)
 		/* if this is reached, then exec failed */
 		syslog(LOG_DAEMON, "execv error");
 		err(1,"execv");
-	} else {	/* parent */
-		wait(NULL);
 	}
+}
+
+void
+sigchld(int unused)
+{
+	(void)unused;
+	if (signal(SIGCHLD, sigchld) == SIG_ERR)
+		err(1, "can't install SIGCHLD handler:");
+	while (waitpid(WAIT_ANY, NULL, WNOHANG) > 0);
+}
+
+static void usage(void)
+{
+	fprintf(stderr, "usage: %s [table]\n", getprogname());
+	exit(1);
 }
 
 int
@@ -121,6 +133,8 @@ main(int argc, char *argv[])
 		err(1, "listen");
 	}
 
+	sigchld(0);
+
 	syslog(LOG_DAEMON, "ready to reap on port %s, muhahaha :>", PORT);
 
 	while (1) {
@@ -148,10 +162,6 @@ main(int argc, char *argv[])
 			runcmd(bancmd[0], bancmd);
 			syslog(LOG_DAEMON, "kill states for %s", ip);
 			runcmd(killstatecmd[0], killstatecmd);
-			exit(0);
-		} else {
-			/* parent process */
-			waitpid(id, NULL, WNOHANG); /* non-blocking loop */
 		}
 	}
 	close(sockfd);
