@@ -67,6 +67,15 @@ main(int argc, char *argv[])
 	int kq	                        = 0;
 	socklen_t sin_size 	        = 0;
 	int s[MAXSOCK]			= {0};
+	struct kevent ev[MAXSOCK]	= {0};
+	struct addrinfo hints, *servinfo, *res;
+	struct sockaddr_storage client_addr;
+
+	if (argc > 2)
+		usage();
+	else if (argc == 2)
+		table = argv[1];
+
 	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
 				            "/sbin/pfctl", "-t", table,
 				            "-T", "add", ip,
@@ -75,9 +84,6 @@ main(int argc, char *argv[])
 					    "/sbin/pfctl",
 					    "-k", ip,
 					    NULL };
-	struct kevent ev[MAXSOCK]	= {0};
-	struct addrinfo hints, *servinfo, *res;
-	struct sockaddr_storage client_addr;
 
 	/* safety first */
 	if (unveil("/usr/bin/doas", "rx") != 0)
@@ -87,11 +93,6 @@ main(int argc, char *argv[])
 		err(1, "unveil");
 	if (pledge("stdio inet exec proc rpath", NULL) != 0)
 		err(1, "pledge");
-
-	if (argc > 2)
-		usage();
-	else if (argc == 2)
-		table = argv[1];
 
 	/* initialize structures */
 	memset(&client_addr, 0, sizeof(client_addr));
