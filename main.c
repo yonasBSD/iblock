@@ -46,7 +46,7 @@ static void runcmd(const char* cmd, const char** arg_list)
 		syslog(LOG_DAEMON, "execv error");
 		err(1,"execv");
 	} else { /* parent */
-		waitpid(pid, NULL, WNOHANG);
+		waitpid(pid, NULL, 0);
 	}
 }
 
