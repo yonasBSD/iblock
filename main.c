@@ -6,6 +6,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <net/if.h>
+#include <net/pfvar.h>
+
 #include <err.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -15,7 +18,7 @@
 #include <unistd.h>
 
 #define DEFAULT_TABLE "iblocked"
-#define PORT "2507"
+#define DEFAULT_PORT "2507"
 #define MAXSOCK 2 /* ipv4 + ipv6 */
 #define BACKLOG 10
 
@@ -52,7 +55,8 @@ static void runcmd(const char* cmd, const char** arg_list)
 
 static void usage(void)
 {
-	fprintf(stderr, "usage: %s [table]\n", getprogname());
+	fprintf(stderr, "usage: %s (-t <table>) (-p <port>)\n",
+		getprogname());
 	exit(1);
 }
 
@@ -60,21 +64,36 @@ int
 main(int argc, char *argv[])
 {
 	char ip[INET6_ADDRSTRLEN]	= {'\0'};
-	const char *table	        = DEFAULT_TABLE;
+	char table[PF_TABLE_NAME_SIZE]  = DEFAULT_TABLE;
+	char port[6] 			= DEFAULT_PORT;
 	const char *err_cause	        = NULL;
 	int new_fd 	                = 0;
 	int nsock 	                = 0;
 	int kq	                        = 0;
-	socklen_t sin_size 	        = 0;
+	int option	                = 0;
 	int s[MAXSOCK]			= {0};
+	socklen_t sin_size 	        = 0;
 	struct kevent ev[MAXSOCK]	= {0};
 	struct addrinfo hints, *servinfo, *res;
 	struct sockaddr_storage client_addr;
 
-	if (argc > 2)
-		usage();
-	else if (argc == 2)
-		table = argv[1];
+	while ((option = getopt(argc, argv, "t:p:")) != -1) {
+		switch (option) {
+		case 'p':
+			if (strlcpy(port, optarg, sizeof(port)) >=
+				sizeof(port))
+					err(1, "invalid port");
+			break;
+		case 't':
+			if (strlcpy(table, optarg, sizeof(table)) >=
+				sizeof(table))
+					err(1, "table name too long");
+			break;
+		default:
+			usage();
+			break;
+		}
+	}
 
 	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
 				            "/sbin/pfctl", "-t", table,
@@ -104,7 +123,7 @@ main(int argc, char *argv[])
 	hints.ai_flags = AI_PASSIVE;
 
 	/* get ips for localhost */
-	int retval = getaddrinfo("localhost", PORT, &hints, &servinfo);
+	int retval = getaddrinfo("localhost", port, &hints, &servinfo);
 	if (retval != 0) {
 		syslog(LOG_DAEMON, "getaddrinfo failed");
 		err(1, "getaddrinfo :%s", gai_strerror(retval));
@@ -141,7 +160,7 @@ main(int argc, char *argv[])
 			ip, sizeof(ip));
 		syslog(LOG_DAEMON, "listening on %s port %s, muahaha :>",
 			ip,
-			PORT);
+			port);
 
 		nsock++;
 	}
