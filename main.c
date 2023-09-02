@@ -24,11 +24,13 @@
 
 static void *get_in_addr(struct sockaddr *);
 static void runcmd(const char*, const char**);
+static int setup_server(const char*, int *);
 static void usage(void);
 
 
 /* return printable ip from sockaddr */
-static void *get_in_addr(struct sockaddr *sa)
+static void
+*get_in_addr(struct sockaddr *sa)
 {
 	if (sa->sa_family == AF_INET)
 		return &(((struct sockaddr_in*)sa)->sin_addr);
@@ -37,7 +39,8 @@ static void *get_in_addr(struct sockaddr *sa)
 }
 
 /* run cmd in execv() after fork() */
-static void runcmd(const char* cmd, const char** arg_list)
+static void
+runcmd(const char* cmd, const char** arg_list)
 {
 	pid_t pid = fork();
 	if (pid == -1) {
@@ -53,68 +56,15 @@ static void runcmd(const char* cmd, const char** arg_list)
 	}
 }
 
-static void usage(void)
+static int
+setup_server(const char *port, int s[])
 {
-	fprintf(stderr, "usage: %s (-t <table>) (-p <port>)\n",
-		getprogname());
-	exit(1);
-}
-
-int
-main(int argc, char *argv[])
-{
-	char ip[INET6_ADDRSTRLEN]	= {'\0'};
-	char table[PF_TABLE_NAME_SIZE]  = DEFAULT_TABLE;
-	char port[6] 			= DEFAULT_PORT;
-	const char *err_cause	        = NULL;
-	int new_fd 	                = 0;
-	int nsock 	                = 0;
-	int kq	                        = 0;
-	int option	                = 0;
-	int s[MAXSOCK]			= {0};
-	socklen_t sin_size 	        = 0;
-	struct kevent ev[MAXSOCK]	= {0};
+	int nsock 	               		= 0;
+	char server_ip[INET6_ADDRSTRLEN]	= {'\0'};
+	const char *err_cause	        	= NULL;
 	struct addrinfo hints, *servinfo, *res;
-	struct sockaddr_storage client_addr;
-
-	while ((option = getopt(argc, argv, "t:p:")) != -1) {
-		switch (option) {
-		case 'p':
-			if (strlcpy(port, optarg, sizeof(port)) >=
-				sizeof(port))
-					err(1, "invalid port");
-			break;
-		case 't':
-			if (strlcpy(table, optarg, sizeof(table)) >=
-				sizeof(table))
-					err(1, "table name too long");
-			break;
-		default:
-			usage();
-			break;
-		}
-	}
-
-	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
-				            "/sbin/pfctl", "-t", table,
-				            "-T", "add", ip,
-				            NULL };
-	const char *killstatecmd[]	= { "/usr/bin/doas", "-n",
-					    "/sbin/pfctl",
-					    "-k", ip,
-					    NULL };
-
-	/* safety first */
-	if (unveil("/usr/bin/doas", "rx") != 0)
-		err(1, "unveil");
-	/* necessary to resolve localhost with getaddrinfo() */
-	if (unveil("/etc/hosts", "r") != 0)
-		err(1, "unveil");
-	if (pledge("stdio inet exec proc rpath", NULL) != 0)
-		err(1, "pledge");
 
 	/* initialize structures */
-	memset(&client_addr, 0, sizeof(client_addr));
 	memset(&hints, 0, sizeof(hints));
 
 	/* set hints for socket */
@@ -157,9 +107,9 @@ main(int argc, char *argv[])
 		/* log the obtained ip */
 		inet_ntop(res->ai_family,
 			get_in_addr((struct sockaddr *)res->ai_addr),
-			ip, sizeof(ip));
+			server_ip, sizeof(server_ip));
 		syslog(LOG_DAEMON, "listening on %s port %s, muahaha :>",
-			ip,
+			server_ip,
 			port);
 
 		nsock++;
@@ -170,6 +120,73 @@ main(int argc, char *argv[])
 
 	if (nsock == 0)
 		err(1, "Error when calling %s", err_cause);
+
+	return nsock;
+}
+
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: %s (-t <table>) (-p <port>)\n",
+		getprogname());
+	exit(1);
+}
+
+int
+main(int argc, char *argv[])
+{
+	char table[PF_TABLE_NAME_SIZE]  = DEFAULT_TABLE;
+	char port[6] 			= DEFAULT_PORT;
+	char ip[INET6_ADDRSTRLEN]	= {'\0'};
+	int new_fd 	                = 0;
+	int nsock 	                = 0;
+	int kq	                        = 0;
+	int option	                = 0;
+	int s[MAXSOCK]			= {0};
+	socklen_t sin_size 	        = 0;
+	struct kevent ev[MAXSOCK]	= {0};
+	struct sockaddr_storage client_addr;
+
+	/* initialize structures */
+	memset(&client_addr, 0, sizeof(client_addr));
+
+	while ((option = getopt(argc, argv, "t:p:")) != -1) {
+		switch (option) {
+		case 'p':
+			if (strlcpy(port, optarg, sizeof(port)) >=
+				sizeof(port))
+					err(1, "invalid port");
+			break;
+		case 't':
+			if (strlcpy(table, optarg, sizeof(table)) >=
+				sizeof(table))
+					err(1, "table name too long");
+			break;
+		default:
+			usage();
+			break;
+		}
+	}
+
+	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
+				            "/sbin/pfctl", "-t", table,
+				            "-T", "add", ip,
+				            NULL };
+	const char *killstatecmd[]	= { "/usr/bin/doas", "-n",
+					    "/sbin/pfctl",
+					    "-k", ip,
+					    NULL };
+
+	/* safety first */
+	if (unveil("/usr/bin/doas", "rx") != 0)
+		err(1, "unveil");
+	/* necessary to resolve localhost with getaddrinfo() */
+	if (unveil("/etc/hosts", "r") != 0)
+		err(1, "unveil");
+	if (pledge("stdio inet exec proc rpath", NULL) != 0)
+		err(1, "pledge");
+
+	nsock = setup_server(port, s);
 
 	/* configure events */
 	kq = kqueue();
