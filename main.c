@@ -26,6 +26,7 @@ static void *get_in_addr(struct sockaddr *);
 static void runcmd(const char*, const char**);
 static int setup_server(const char*, int *);
 static void usage(void);
+static void watch_event(const int, const int *, const char *);
 
 
 /* return printable ip from sockaddr */
@@ -132,42 +133,14 @@ usage(void)
 	exit(1);
 }
 
-int
-main(int argc, char *argv[])
+static void
+watch_event(const int nsock, const int s[], const char *table)
 {
-	char table[PF_TABLE_NAME_SIZE]  = DEFAULT_TABLE;
-	char port[6] 			= DEFAULT_PORT;
-	char ip[INET6_ADDRSTRLEN]	= {'\0'};
+	int kq 				= 0;
 	int new_fd 	                = 0;
-	int nsock 	                = 0;
-	int kq	                        = 0;
-	int option	                = 0;
-	int s[MAXSOCK]			= {0};
-	socklen_t sin_size 	        = 0;
+	char ip[INET6_ADDRSTRLEN]	= {'\0'};
 	struct kevent ev[MAXSOCK]	= {0};
-	struct sockaddr_storage client_addr;
-
-	/* initialize structures */
-	memset(&client_addr, 0, sizeof(client_addr));
-
-	while ((option = getopt(argc, argv, "t:p:")) != -1) {
-		switch (option) {
-		case 'p':
-			if (strlcpy(port, optarg, sizeof(port)) >=
-				sizeof(port))
-					err(1, "invalid port");
-			break;
-		case 't':
-			if (strlcpy(table, optarg, sizeof(table)) >=
-				sizeof(table))
-					err(1, "table name too long");
-			break;
-		default:
-			usage();
-			break;
-		}
-	}
-
+	socklen_t sin_size 	        = 0;
 	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
 				            "/sbin/pfctl", "-t", table,
 				            "-T", "add", ip,
@@ -176,34 +149,29 @@ main(int argc, char *argv[])
 					    "/sbin/pfctl",
 					    "-k", ip,
 					    NULL };
+	struct sockaddr_storage client_addr;
 
-	/* safety first */
-	if (unveil("/usr/bin/doas", "rx") != 0)
-		err(1, "unveil");
-	/* necessary to resolve localhost with getaddrinfo() */
-	if (unveil("/etc/hosts", "r") != 0)
-		err(1, "unveil");
-	if (pledge("stdio inet exec proc rpath", NULL) != 0)
-		err(1, "pledge");
 
-	nsock = setup_server(port, s);
+	/* initialize structures */
+	memset(&client_addr, 0, sizeof(client_addr));
 
 	/* configure events */
 	kq = kqueue();
 
 	/* add event for each IP */
-	for (int i = 0; i <= nsock; i++)
-		EV_SET(&(ev[i]), s[i], EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+	for (int i = 0; i < nsock; i++)
+		EV_SET(&(ev[i]), s[i],
+			EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
 
 	/* register event */
 	if (kevent(kq, ev, MAXSOCK, NULL, 0, NULL) == -1)
-		err(1, "kevent");
+		err(1, "kevent register");
 
 	/* infinite loop to wait for connections */
 	for (;;) {
 		int nevents = kevent(kq, NULL, 0, ev, MAXSOCK, NULL);
 		if (nevents == -1)
-			err(1, "kevent");
+			err(1, "kevent get event");
 
 		/* loop for events */
 		for (int i = 0; i < nevents; i++) {
@@ -235,9 +203,53 @@ main(int argc, char *argv[])
 		} /* events loop */
 	} /* infinite loop */
 
-	/* probably never reached */
+	/* probably never reached, but close properly */
 	close(kq);
-	for (int i = 0; i <= nsock; i++)
+}
+
+int
+main(int argc, char *argv[])
+{
+	char table[PF_TABLE_NAME_SIZE]  = DEFAULT_TABLE;
+	char port[6] 			= DEFAULT_PORT;
+	int nsock 	                = 0;
+	int option	                = 0;
+	int s[MAXSOCK]			= {0};
+
+
+	while ((option = getopt(argc, argv, "t:p:")) != -1) {
+		switch (option) {
+		case 'p':
+			if (strlcpy(port, optarg, sizeof(port)) >=
+				sizeof(port))
+					err(1, "invalid port");
+			break;
+		case 't':
+			if (strlcpy(table, optarg, sizeof(table)) >=
+				sizeof(table))
+					err(1, "table name too long");
+			break;
+		default:
+			usage();
+			break;
+		}
+	}
+
+
+	/* safety first */
+	if (unveil("/usr/bin/doas", "rx") != 0)
+		err(1, "unveil");
+	/* necessary to resolve localhost with getaddrinfo() */
+	if (unveil("/etc/hosts", "r") != 0)
+		err(1, "unveil");
+	if (pledge("stdio inet exec proc rpath", NULL) != 0)
+		err(1, "pledge");
+
+	nsock = setup_server(port, s);
+	watch_event(nsock, s, table);
+
+	/* probably never reached, but close properly */
+	for (int i = 0; i < nsock; i++)
 		close(s[i]);
 	return 0;
 }
