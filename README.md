@@ -40,10 +40,10 @@ pass in quick on egress inet6 proto tcp to port $blocking_tcp rdr-to ::1 port 25
 
 Don't forget to reload the rules with `pfctl -f /etc/pf.conf`.
 
-Use another table name by passing it as argument to iblock :
+Use another table or port name by passing appropriate flags to iblock:
 
 ```
-rcctl set iblock flags another_table_name
+rcctl set iblock flags -t another_table_name -p 5373
 ```
 
 # Get some statistics
