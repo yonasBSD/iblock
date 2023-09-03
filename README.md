@@ -51,8 +51,3 @@ rcctl set iblock flags -t another_table_name -p 5373
 Done! You can see IP banned using `pfctl -t iblocked -T show` and iblock will send blocked addresses to syslog.
 
 In the example I added a label to the block rule, you can use `pfctl -s labels` to view statistics from this rule, [see documentation for column meaning](https://man.openbsd.org/pfctl#s~8).
-
-
-# TODO
-
-- A proper man page

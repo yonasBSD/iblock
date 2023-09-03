@@ -17,6 +17,7 @@ clean:
 install: iblock
 	install -o root -g wheel iblock ${PREFIX}/sbin/
 	install -o root -g wheel iblock.rc /etc/rc.d/iblock
+	install -o root -g wheel iblock.8 ${PREFIX}/man/man8/
 
 test: clean iblock
 	@printf "hello\n" | nc -4 localhost 666

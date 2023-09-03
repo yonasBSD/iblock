@@ -1,0 +1,30 @@
+.Dd $Mdocdate: September 03 2023 $
+.Dt iblock 8
+.Os
+.Sh NAME
+.Nm iblock
+.Nd add unwanted IP to pf table
+.Sh SYNOPSIS
+.Nm iblock
+.Op Fl t Ar table
+.Op Fl p Ar port
+.Sh DESCRIPTION
+.Nm
+is a program adding the client IP to a Packet Filter table.
+.Pp
+It is meant to be used to block scanner connecting on unused ports.
+Upon connection, the IP is added to a PF table and all established connections with this IP are killed.  You need to use a PF bloking rule using the table.
+
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Op Fl t Ar table
+Set the pf 
+.Ar table
+to add the detected IP.
+.It Op Fl p Ar port
+Set the listening
+.Ar port .
+.El
+.Sh DEPLOYMENT
+
+TODO
