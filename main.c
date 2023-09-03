@@ -192,9 +192,8 @@ watch_event(const int nsock, const int s[], const char *table)
 				close(new_fd); /* no longer required */
 
 				/* ban this ip */
-				syslog(LOG_DAEMON, "blocking %s", ip);
+				syslog(LOG_DAEMON, "block and kill states for %s", ip);
 				runcmd(bancmd[0], bancmd);
-				syslog(LOG_DAEMON, "kill states for %s", ip);
 				runcmd(killstatecmd[0], killstatecmd);
 			}
 			if (ev[i].filter & EVFILT_SIGNAL) {
