@@ -22,12 +22,31 @@
 #define MAXSOCK 2 /* ipv4 + ipv6 */
 #define BACKLOG 10
 
+static void ban(const char *, const char *);
 static void *get_in_addr(struct sockaddr *);
-static void runcmd(const char*, const char**);
+static void runcmd(const char**);
 static int setup_server(const char*, int *);
 static void usage(void);
 static void watch_event(const int, const int *, const char *);
 
+
+static void
+ban(const char *ip, const char *table)
+{
+
+	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
+				            "/sbin/pfctl", "-t", table,
+				            "-T", "add", ip,
+				            NULL };
+	const char *killstatecmd[]	= { "/usr/bin/doas", "-n",
+					    "/sbin/pfctl",
+					    "-k", ip,
+					    NULL };
+
+	syslog(LOG_DAEMON, "block and kill states for %s", ip);
+	runcmd(bancmd);
+	runcmd(killstatecmd);
+}
 
 /* return printable ip from sockaddr */
 static void
@@ -41,14 +60,14 @@ static void
 
 /* run cmd in execv() after fork() */
 static void
-runcmd(const char* cmd, const char** arg_list)
+runcmd(const char **cmd_arg_list)
 {
 	pid_t pid = fork();
 	if (pid == -1) {
 		syslog(LOG_DAEMON, "fork error");
 		err(1,"fork");
 	} else if (pid == 0) {	/* child */
-		execv(cmd, (char **)arg_list);
+		execv(cmd_arg_list[0], (char **)cmd_arg_list);
 		/* if this is reached, then exec failed */
 		syslog(LOG_DAEMON, "execv error");
 		err(1,"execv");
@@ -141,14 +160,6 @@ watch_event(const int nsock, const int s[], const char *table)
 	char ip[INET6_ADDRSTRLEN]	= {'\0'};
 	struct kevent ev[MAXSOCK]	= {0};
 	socklen_t sin_size 	        = 0;
-	const char *bancmd[]	        = { "/usr/bin/doas", "-n",
-				            "/sbin/pfctl", "-t", table,
-				            "-T", "add", ip,
-				            NULL };
-	const char *killstatecmd[]	= { "/usr/bin/doas", "-n",
-					    "/sbin/pfctl",
-					    "-k", ip,
-					    NULL };
 	struct sockaddr_storage client_addr;
 
 
@@ -191,10 +202,7 @@ watch_event(const int nsock, const int s[], const char *table)
 
 				close(new_fd); /* no longer required */
 
-				/* ban this ip */
-				syslog(LOG_DAEMON, "block and kill states for %s", ip);
-				runcmd(bancmd[0], bancmd);
-				runcmd(killstatecmd[0], killstatecmd);
+				ban(ip, table); /* ban this ip */
 			}
 			if (ev[i].filter & EVFILT_SIGNAL) {
 				break;
