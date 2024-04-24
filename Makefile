@@ -16,6 +16,7 @@ clean:
 
 install: iblock
 	install -o root -g wheel iblock ${PREFIX}/sbin/
+	install -o root -g wheel iblock.rc /etc/rc.d/iblock
 
 test: clean iblock
 	@printf "hello\n" | nc -4 localhost 666
